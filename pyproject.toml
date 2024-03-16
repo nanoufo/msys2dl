@@ -1,0 +1,37 @@
+[tool.black]
+line-length = 110
+target-version = ["py39"]
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+python_version = "3.9"
+strict = true
+
+[tool.poetry]
+name = "msys2downloader"
+version = "0.1.0"
+description = ""
+authors = ["nanoufo <79045429+nanoufo@users.noreply.github.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+requests = "^2.31.0"
+zstandard = "^0.22.0"
+
+
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.9.0"
+black = "^24.3.0"
+isort = "^5.13.2"
+types-requests = "^2.31.0.20240311"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+msys2-download = "msys2downloader.main:main"
