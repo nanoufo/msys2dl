@@ -33,3 +33,18 @@ $ tree -L 2 /tmp/sysroot
     ├── libexec
     └── share
 ```
+
+## Options
+
+### Useful
+| Option | Description |
+|---|---|
+| --env ENV | Optional. Specifies the MSYS2 environment to search for packages. One of `clangarm64`, `clang32`, `clang64`, `mingw32`, `mingw64`, `ucrt64`. This option allows you to use short package names like `curl` instead of `mingw-w64-x86_64-curl`. |
+| --extract-root PATH |  Optional. Specifies the directory where packages will be extracted. By default, packages are downloaded to the cache and not unpacked. |
+| --no-deps | Download only the specified packages without their dependencies. |
+
+### Less useful
+| Option | Description |
+|---|---|
+| --base-url URL | Specifies the URL from which to download the package database and packages. The default is `https://mirror.msys2.org`. |
+| --cache PATH | Specifies the directory where packages are downloaded. The default directory is `~/.cache/msys2-downloader`. |
