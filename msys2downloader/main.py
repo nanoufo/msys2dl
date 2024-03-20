@@ -33,6 +33,7 @@ def _run_app(argv: Optional[List[str]] = None) -> None:
     )
     parser.add_argument("--no-deps", action="store_true", default=False)
     parser.add_argument("--base-url", type=str, default="https://mirror.msys2.org")
+    parser.add_argument("--exclude", metavar="PACKAGE", type=str, nargs="+", default=[])
     parser.add_argument("packages", metavar="PACKAGE", nargs="+")
     args = parser.parse_args(argv)
 
@@ -51,15 +52,29 @@ def _run_app(argv: Optional[List[str]] = None) -> None:
 
     # Resolve full package names
     default_env = Environment.by_name_or_raise(args.env) if args.env else None
-    package_names = PackageNameResolver(default_env).resolve_full_names(args.packages)
-    package_environments = set(env for name in package_names if (env := Environment.by_package_name(name)))
+    name_resolver = PackageNameResolver(default_env)
+    package_names = name_resolver.resolve_full_names(args.packages)
+    excluded_package_names = name_resolver.resolve_full_names(args.exclude)
+    package_environments = set(
+        env for name in (package_names + excluded_package_names) if (env := Environment.by_package_name(name))
+    )
 
     # Download package databases & find requested packages
     database = PackageDatabase(downloader)
     database.download_for_environments(package_environments)
-    requested_packages = PackageSet(database.get_all_or_raise(package_names))
+
+    # Show warnings about unknown excluded packages
+    excluded_packages = []
+    for excluded_name in excluded_package_names:
+        package = database.get(excluded_name)
+        if package:
+            excluded_packages.append(package)
+        else:
+            print(f"Warning: unknown excluded package '{excluded_name}'")
+
+    requested_packages = PackageSet(database.get_all_or_raise(package_names)) - excluded_packages
     if not no_deps:
-        requested_packages.add_dependencies_recursively()
+        requested_packages.add_dependencies_recursively(exclude=excluded_packages)
 
     # Download packages
     print("Downloading packages...")

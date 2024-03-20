@@ -155,16 +155,19 @@ class PackageSet:
         self._set.add(package)
         return True
 
-    def add_dependencies_recursively(self):
+    def add_dependencies_recursively(self, exclude: Optional[Iterable[Package]]) -> None:
         q = deque(self._set)
         while q:
             package = q.pop()
             for dep in package.dependencies:
-                if self.add(dep):
+                if (exclude is None or dep not in exclude) and self.add(dep):
                     q.append(dep)
 
-    def __add__(self, other: "PackageSet") -> "PackageSet":
-        return PackageSet(self._set.union(other._set))
+    def __add__(self, other: Iterable[Package]) -> "PackageSet":
+        return PackageSet(self._set.union(other))
+
+    def __sub__(self, other: Iterable[Package]) -> "PackageSet":
+        return PackageSet(self._set.difference(other))
 
     def __iter__(self) -> Iterator[Package]:
         return iter(self._set)
