@@ -1,60 +1,31 @@
-import io
 import sys
-import tarfile
 from argparse import ArgumentParser
+from enum import Enum
 from pathlib import Path
-from tarfile import TarInfo, data_filter
-from typing import List, Optional, Set
+from typing import List, Optional
 
-import zstandard as zstd
+from alive_progress import alive_bar
 
-from msys2downloader.downloader import Cache, Downloader
-from msys2downloader.package import Environment, Package
-
-
-def decompress_zst(inp: bytes) -> bytes:
-    decompressor = zstd.ZstdDecompressor()
-    stream_reader = decompressor.stream_reader(inp)
-    return stream_reader.read()
+from msys2downloader.deb_builder import DebBuilder
+from msys2downloader.downloader import Downloader, DownloadCache
+from msys2downloader.package import Environment, PackageSet
+from msys2downloader.package_database import PackageNameResolver, PackageDatabase
+from msys2downloader.utilities import DisplayableError
 
 
-def load_package_database(downloader: Downloader, env: Environment) -> dict[str, Package]:
-    # Download database file
-    content = downloader.download(env.database_download_path)
-    # Read database file
-    content = decompress_zst(content)
-    tar = tarfile.open(fileobj=io.BytesIO(content), mode="r")
-    packages = []
-    for member in tar.getmembers():
-        file = tar.extractfile(member)
-        if file and member.name.endswith("/desc"):
-            packages.append(Package.from_desc(file.read().decode("utf-8"), environment=env))
-    packages_dict = {p.name: p for p in packages}
-    # Populate dependency links
-    for package in packages:
-        package.populate_dependencies(packages_dict)
-    return packages_dict
+# Enum for mode
+class Mode(Enum):
+    EXTRACT = "extract"
+    MAKE_DEB = "make-deb"
 
 
-def unpack(package_archive: bytes, target_root: Path) -> None:
-    def need_to_extract(member: TarInfo, dest_path: str) -> Optional[TarInfo]:
-        if not data_filter(member, dest_path):
-            return None
-        if member.name.startswith("."):
-            # No .MTREE and other pacman files
-            return None
-        return member
-
-    tar_bytes = decompress_zst(package_archive)
-    tar = tarfile.open(fileobj=io.BytesIO(tar_bytes), mode="r")
-    tar.extractall(filter=need_to_extract, path=target_root)
-
-
-def main(argv: Optional[List[str]] = None) -> None:
+def _run_app(argv: Optional[List[str]] = None) -> None:
     argv = argv if argv is not None else sys.argv[1:]
     parser = ArgumentParser()
-    parser.add_argument("--extract-root", type=Path, required=False)
-    parser.add_argument("--cache", type=Path)
+    parser.add_argument("--extract", dest="mode", action="store_const", const=Mode.EXTRACT, default=False)
+    parser.add_argument("--make-deb", dest="mode", action="store_const", const=Mode.MAKE_DEB, default=False)
+    parser.add_argument("--output", "-o", metavar="OUTPUT_DIRECTORY", type=Path, default=Path("."))
+    parser.add_argument("--cache-dir", type=Path)
     parser.add_argument(
         "--env",
         default=None,
@@ -65,75 +36,70 @@ def main(argv: Optional[List[str]] = None) -> None:
     parser.add_argument("packages", metavar="PACKAGE", nargs="+")
     args = parser.parse_args(argv)
 
-    if not args.extract_root:
-        print("No --extract-root provided, packages will be downloaded to cache")
-
+    # Setup
+    mode = args.mode
+    output = args.output
+    if not args.mode:
+        raise DisplayableError("No --extract or --make-deb specified")
     no_deps = args.no_deps
-    cache_root = args.cache if args.cache else Path("~/.cache/msys2-downloader").expanduser()
-    cache = Cache(cache_root)
+    cache_root = args.cache if args.cache_dir else Path("~/.cache/msys2-downloader").expanduser()
+    cache = DownloadCache(cache_root)
     downloader = Downloader(args.base_url, cache)
 
-    envs: list[Environment]
-    if args.env:
-        default_env = Environment.by_name_or_raise(args.env)
-        envs = [default_env]
-    else:
-        default_env = None
-        envs = [env for p in args.packages if (env := Environment.by_package_name(p))]
+    # Create output directory
+    output.mkdir(parents=True, exist_ok=True)
 
-    if not envs:
-        raise SystemExit("MSYS2 environment is not set. Provide one with --env or use prefixed package names")
+    # Resolve full package names
+    default_env = Environment.by_name_or_raise(args.env) if args.env else None
+    package_names = PackageNameResolver(default_env).resolve_full_names(args.packages)
+    package_environments = set(env for name in package_names if (env := Environment.by_package_name(name)))
 
-    # Download package databases
-    env2database: dict[Environment, dict[str, Package]] = {}
-    for env in envs:
-        env2database[env] = load_package_database(downloader, env)
-
-    # Find requested packages in the database
-    packages_to_download: Set[Package] = set()
-    for package_name in args.packages:
-        # Find package in the databases
-        candidate_names = [package_name]
-        if default_env:
-            candidate_names.append(default_env.package_name_prefix + package_name)
-        candidates = []
-        for env in envs:
-            for candidate_name in candidate_names:
-                candidate = env2database[env].get(candidate_name)
-                if candidate:
-                    candidates.append(candidate)
-        if len(candidates) == 0:
-            raise SystemExit(f"Unknown package {package_name}, tried {candidate_names}")
-        elif len(candidates) >= 2:
-            raise SystemExit(f"Ambiguous package name {package_name}")
-        # Mark for download
-        package = candidates[0]
-        if no_deps:
-            packages_to_download.add(package)
-        else:
-            packages_to_download.update(package.with_recursive_dependencies())
+    # Download package databases & find requested packages
+    database = PackageDatabase(downloader)
+    database.download_for_environments(package_environments)
+    requested_packages = PackageSet(database.get_all_or_raise(package_names))
+    if not no_deps:
+        requested_packages.add_dependencies_recursively()
 
     # Download packages
-    n_failed = 0
-    for package in packages_to_download:
-        if cache.contains(package.download_path):
-            continue
-        try:
-            downloader.download(package)
-        except Exception as e:
-            print(f"Failed to download {package.name}: {e}")
-            n_failed += 1
-    if n_failed > 0:
-        raise SystemExit("Failed to download some packages")
+    print("Downloading packages...")
+    package_files = []
+    with alive_bar(len(requested_packages), enrich_print=False) as bar:
+        for p in requested_packages:
+            bar.title = str(p)
+            package_file = p.get_from_cache(cache)
+            if package_file:
+                print(f"{p} is cached")
+                bar(1, skipped=True)
+            else:
+                package_file = p.download(downloader)
+                bar(1)
+                print(f"{p} downloaded")
+            package_files.append(package_file)
+        bar.title = "Done!"
 
-    # Unpack
-    if args.extract_root:
-        for package in packages_to_download:
-            print(f"Extracting {package.name} to {args.extract_root}")
-            package_bytes = cache.load(package.download_path)
-            if not package_bytes:
-                raise RuntimeError(f"{package.name} not found in cache (probably a bug)")
-            unpack(package_bytes, args.extract_root)
+    # Do something with downloaded packages
+    if mode == Mode.EXTRACT:
+        print("Extracting packages...")
+    elif mode == Mode.MAKE_DEB:
+        print("Building deb packages...")
+    with alive_bar(len(requested_packages), enrich_print=False) as bar:
+        for package_file in package_files:
+            bar.title = str(package_file.metadata)
+            if mode == Mode.EXTRACT:
+                package_file.extract(output)
+            elif mode == Mode.MAKE_DEB:
+                DebBuilder().build_for(package_file).write_to_dir(output)
+            bar(1)
+        bar.title = "Done!"
+
+
+def main(argv: Optional[List[str]] = None) -> None:
+    try:
+        _run_app(argv)
+    except DisplayableError as e:
+        e.display()
+        sys.exit(1)
 
 
 if __name__ == "__main__":

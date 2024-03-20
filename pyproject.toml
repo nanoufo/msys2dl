@@ -21,6 +21,7 @@ readme = "README.md"
 python = "^3.9"
 requests = "^2.31.0"
 zstandard = "^0.22.0"
+alive-progress = "^3.1.5"
 
 
 [tool.poetry.group.dev.dependencies]

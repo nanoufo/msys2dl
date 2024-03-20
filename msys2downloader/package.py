@@ -1,7 +1,14 @@
+import io
 import re
+import tarfile
 from collections import deque
 from dataclasses import dataclass, field
-from typing import ClassVar, List, Optional
+from pathlib import Path
+from tarfile import TarInfo, data_filter, TarFile
+from typing import ClassVar, List, Optional, Iterable, Iterator
+
+from msys2downloader.downloader import Downloader, DownloadCache
+from msys2downloader.utilities import decompress_zst
 
 
 @dataclass
@@ -64,11 +71,15 @@ Environment.all = [
 class Package:
     environment: Environment
     name: str
+    description: str
     version: str
     filename: str
     dependencies_str: list[str]
     dependencies: list["Package"] = field(default_factory=lambda: [], repr=False)
     unknown_dependencies: list[str] = field(default_factory=lambda: [])
+
+    def __str__(self) -> str:
+        return f"{self.name}-{self.version}"
 
     def __hash__(self) -> int:
         return hash(self.name)
@@ -81,6 +92,10 @@ class Package:
     @property
     def download_path(self) -> str:
         return self.environment.package_download_path(self.filename)
+
+    @property
+    def short_name(self) -> str:
+        return self.name.removeprefix(self.environment.package_name_prefix)
 
     def populate_dependencies(self, packages_dict: dict[str, "Package"]) -> None:
         self.dependencies = []
@@ -114,17 +129,66 @@ class Package:
             name=sections["NAME"],
             version=sections["VERSION"],
             filename=sections["FILENAME"],
+            description=sections.get("DESC", ""),
             dependencies_str=[d for d in sections.get("DEPENDS", "").split("\n") if d],
             environment=environment,
         )
 
-    def with_recursive_dependencies(self) -> set["Package"]:
-        dset = {self}
-        q = deque([self])
+    def download(self, downloader: Downloader) -> "PackageFile":
+        return PackageFile(self, downloader.download(self))
+
+    def get_from_cache_or_raise(self, cache: DownloadCache) -> "PackageFile":
+        return PackageFile(self, cache.find_or_raise(self))
+
+    def get_from_cache(self, cache: DownloadCache) -> Optional["PackageFile"]:
+        path = cache.find(self)
+        return PackageFile(self, path) if path else None
+
+
+class PackageSet:
+    def __init__(self, packages: Optional[Iterable[Package]] = None) -> None:
+        self._set = set(packages) if packages is not None else set()
+
+    def add(self, package: Package) -> bool:
+        if package in self._set:
+            return False
+        self._set.add(package)
+        return True
+
+    def add_dependencies_recursively(self):
+        q = deque(self._set)
         while q:
             package = q.pop()
             for dep in package.dependencies:
-                if dep not in dset:
+                if self.add(dep):
                     q.append(dep)
-                    dset.add(dep)
-        return dset
+
+    def __add__(self, other: "PackageSet") -> "PackageSet":
+        return PackageSet(self._set.union(other._set))
+
+    def __iter__(self) -> Iterator[Package]:
+        return iter(self._set)
+
+    def __len__(self) -> int:
+        return len(self._set)
+
+
+@dataclass
+class PackageFile:
+    metadata: Package
+    path: Path
+
+    def extract(self, dst: Path) -> None:
+        def need_to_extract(member: TarInfo, dest_path: str) -> Optional[TarInfo]:
+            if not data_filter(member, dest_path):
+                return None
+            if member.name.startswith("."):
+                # No .MTREE and other pacman files
+                return None
+            return member
+
+        self.as_tar_file().extractall(filter=need_to_extract, path=dst)
+
+    def as_tar_file(self) -> TarFile:
+        tar_bytes = decompress_zst(self.path.read_bytes())
+        return tarfile.open(fileobj=io.BytesIO(tar_bytes), mode="r")
