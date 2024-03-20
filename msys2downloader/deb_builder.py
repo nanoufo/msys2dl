@@ -70,7 +70,7 @@ class DebBuilder:
             (build_dir / "DEBIAN/control").write_text(control_file_content, encoding="utf-8")
 
             # Run dpkg-deb
-            deb_file_name = f"{deb_name}-{package.version}.deb"
+            deb_file_name = f"{deb_name}_{package.version}_all.deb"
             deb_path = tdir / deb_file_name
             try:
                 result = subprocess.run(
