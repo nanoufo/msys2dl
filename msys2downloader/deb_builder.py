@@ -45,6 +45,8 @@ class DebBuilder:
 
             # Extract package contents & perform directory renames
             msys2_package_file.extract(build_dir)
+
+            # Perform directory renames
             for src, dst in self._dir_rewrites.items():
                 src_path = build_dir / src
                 dst_path = build_dir / dst
@@ -53,12 +55,15 @@ class DebBuilder:
                 if src_path.exists():
                     shutil.move(src_path, dst_path)
 
+            # Perform directory renames in pkg-config files
+            self._alter_paths_in_pkgconfig_files(self, build_dir)
+
             # Generate control file
             single_line_description = package.description.replace("\n", " ")
             control_file_content = textwrap.dedent(
                 f"""
                Package: {deb_name}
-               Version: {package.version}
+               Version: 1.0.0
                Architecture: all
                Maintainer: unknown
                Description: {single_line_description}
@@ -86,6 +91,14 @@ class DebBuilder:
             if result.returncode != 0:
                 raise DpkgDebSubprocessError(result)
             return FileBlueprint(name=deb_file_name, content=deb_path.read_bytes())
+
+    @staticmethod
+    def _alter_paths_in_pkgconfig_files(self, root: Path):
+        for pc_file in root.rglob('**/*.pc'):
+            content = pc_file.read_text('utf-8')
+            for src, dst in self._dir_rewrites.items():
+                content = content.replace("/" + src, "/" + dst)
+            pc_file.write_text(content, 'utf-8')
 
     @staticmethod
     def _generate_package_name(package: Package):

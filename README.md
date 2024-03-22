@@ -20,7 +20,7 @@ pip install --user git+https://github.com/nanoufo/msys2-downloader.git@main
 
 Conversion to Debian packages.
 
-Note: Use this feature only with `mingw64` or `mingw32` environments. Files in packages from these environments are relocated from `/mingw{32,64}` to `/usr/{i686,x86_64}-w64-mingw32`, where distribution-provided tools expect them to be.
+Note: Use this feature only with `mingw64` or `mingw32` environments. Files in packages from these environments are relocated from `/mingw{32,64}` to `/usr/{i686,x86_64}-w64-mingw32`, where distribution-provided tools expect them to be. Paths in .pc (pkg-config) files are also modified.
 
 Note: Dependencies are downloaded by default. Use the `--no-deps` flag to opt-out..
  
