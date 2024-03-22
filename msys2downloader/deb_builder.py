@@ -1,3 +1,4 @@
+import re
 import shutil
 import subprocess
 import tempfile
@@ -60,22 +61,23 @@ class DebBuilder:
 
             # Generate control file
             single_line_description = package.description.replace("\n", " ")
+            version = self._convert_package_version(package.version)
             control_file_content = textwrap.dedent(
                 f"""
                Package: {deb_name}
-               Version: 1.0.0
+               Version: {version}
                Architecture: all
                Maintainer: unknown
                Description: {single_line_description}
                Recommends: {', '.join(self._generate_package_name(d) for d in package.dependencies)}
-               
+
                """
             )
             (build_dir / "DEBIAN").mkdir(parents=True)
             (build_dir / "DEBIAN/control").write_text(control_file_content, encoding="utf-8")
 
             # Run dpkg-deb
-            deb_file_name = f"{deb_name}_{package.version}_all.deb"
+            deb_file_name = f"{deb_name}_{version}_all.deb"
             deb_path = tdir / deb_file_name
             try:
                 result = subprocess.run(
@@ -94,12 +96,21 @@ class DebBuilder:
 
     @staticmethod
     def _alter_paths_in_pkgconfig_files(self, root: Path):
-        for pc_file in root.rglob('**/*.pc'):
-            content = pc_file.read_text('utf-8')
+        for pc_file in root.rglob("**/*.pc"):
+            content = pc_file.read_text("utf-8")
             for src, dst in self._dir_rewrites.items():
                 content = content.replace("/" + src, "/" + dst)
-            pc_file.write_text(content, 'utf-8')
+            pc_file.write_text(content, "utf-8")
 
     @staticmethod
     def _generate_package_name(package: Package):
         return f"{package.short_name}-msys2-{package.environment.name}"
+
+    @staticmethod
+    def _convert_package_version(version: str) -> str:
+        # Change version to be compatible with Debian package system
+        version = version.replace("-", ".")
+        version = re.sub(r"[^a-zA-Z0-9.+~]", "", version)
+        if not version[0].isdigit():
+            version = "0." + version
+        return version
