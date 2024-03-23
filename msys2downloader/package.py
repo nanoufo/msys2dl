@@ -1,14 +1,7 @@
-import io
 import re
-import tarfile
 from collections import deque
 from dataclasses import dataclass, field
-from pathlib import Path
-from tarfile import TarInfo, data_filter, TarFile
 from typing import ClassVar, List, Optional, Iterable, Iterator
-
-from msys2downloader.downloader import Downloader, DownloadCache
-from msys2downloader.utilities import decompress_zst
 
 
 @dataclass
@@ -56,6 +49,13 @@ class Environment:
             None,
         )
 
+    @staticmethod
+    def by_package_name_or_raise(pname: str) -> "Environment":
+        env = Environment.by_package_name(pname)
+        if env:
+            return env
+        raise ValueError(f"No environment in package name: {pname}")
+
 
 Environment.all = [
     Environment("clangarm64", [], "/mingw", "mingw-w64-clang-aarch64-"),
@@ -74,6 +74,7 @@ class Package:
     description: str
     version: str
     filename: str
+    compressed_size: Optional[int]
     dependencies_str: list[str]
     dependencies: list["Package"] = field(default_factory=lambda: [], repr=False)
     unknown_dependencies: list[str] = field(default_factory=lambda: [])
@@ -129,20 +130,11 @@ class Package:
             name=sections["NAME"],
             version=sections["VERSION"],
             filename=sections["FILENAME"],
+            compressed_size=int(sections["CSIZE"]) if "CSIZE" in sections else None,
             description=sections.get("DESC", ""),
             dependencies_str=[d for d in sections.get("DEPENDS", "").split("\n") if d],
             environment=environment,
         )
-
-    def download(self, downloader: Downloader) -> "PackageFile":
-        return PackageFile(self, downloader.download(self))
-
-    def get_from_cache_or_raise(self, cache: DownloadCache) -> "PackageFile":
-        return PackageFile(self, cache.find_or_raise(self))
-
-    def get_from_cache(self, cache: DownloadCache) -> Optional["PackageFile"]:
-        path = cache.find(self)
-        return PackageFile(self, path) if path else None
 
 
 class PackageSet:
@@ -174,24 +166,3 @@ class PackageSet:
 
     def __len__(self) -> int:
         return len(self._set)
-
-
-@dataclass
-class PackageFile:
-    metadata: Package
-    path: Path
-
-    def extract(self, dst: Path) -> None:
-        def need_to_extract(member: TarInfo, dest_path: str) -> Optional[TarInfo]:
-            if not data_filter(member, dest_path):
-                return None
-            if member.name.startswith("."):
-                # No .MTREE and other pacman files
-                return None
-            return member
-
-        self.as_tar_file().extractall(filter=need_to_extract, path=dst)
-
-    def as_tar_file(self) -> TarFile:
-        tar_bytes = decompress_zst(self.path.read_bytes())
-        return tarfile.open(fileobj=io.BytesIO(tar_bytes), mode="r")

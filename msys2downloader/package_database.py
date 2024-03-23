@@ -3,21 +3,24 @@ import tarfile
 from pathlib import Path
 from typing import Iterable, Optional
 
-from msys2downloader.downloader import Downloader
+from msys2downloader.download.download_request import DownloadRequest
 from msys2downloader.package import Environment, Package
-from msys2downloader.utilities import decompress_zst, DisplayableError
+from msys2downloader.utilities import decompress_zst, AppError
 
 
 class PackageDatabase:
-    def __init__(self, downloader: Downloader):
-        self.downloader = downloader
+    def __init__(self, root: Path) -> None:
+        self._root = root
         self._packages_dict: dict[str, Package] = {}
-        self._reload()
+        self.reload()
 
-    def download_for_environments(self, environments: Iterable[Environment]):
-        for env in environments:
-            self.downloader.download(env.database_download_path)
-        self._reload()
+    def make_download_requests(
+        self, base_url: str, environments: Iterable[Environment]
+    ) -> list[DownloadRequest]:
+        return [
+            DownloadRequest(name=e.name, url=base_url + e.database_download_path, dest=self._database_file(e))
+            for e in environments
+        ]
 
     def get(self, full_name: str) -> Optional[Package]:
         return self._packages_dict.get(full_name)
@@ -25,20 +28,23 @@ class PackageDatabase:
     def get_or_raise(self, full_name: str) -> Package:
         package = self.get(full_name)
         if package is None:
-            raise DisplayableError(f"Package {full_name} not found")
+            raise AppError(f"Package {full_name} not found")
         return package
 
     def get_all_or_raise(self, full_names: Iterable[str]) -> list[Package]:
         return [self.get_or_raise(name) for name in full_names]
 
-    def _reload(self):
-        self._packages_dict: dict[str, Package] = {}
+    def reload(self) -> None:
+        self._packages_dict = {}
         for env in Environment.all:
-            db_file = self.downloader.cache.find(env.database_download_path)
-            if db_file:
+            db_file = self._database_file(env)
+            if db_file.exists():
                 self._packages_dict.update({p.name: p for p in self._load_from_file(env, db_file)})
         for p in self._packages_dict.values():
             p.populate_dependencies(self._packages_dict)
+
+    def _database_file(self, environment: Environment) -> Path:
+        return self._root / (environment.name + ".db")
 
     @staticmethod
     def _load_from_file(env: Environment, path: Path) -> list[Package]:
@@ -63,7 +69,7 @@ class PackageNameResolver:
         elif self.default_env:
             return self.default_env.package_name_prefix + name
         else:
-            raise DisplayableError(
+            raise AppError(
                 f"package '{name}' does not contain environment prefix, and no default environment set"
             )
 

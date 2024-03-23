@@ -1,31 +1,12 @@
 import re
 import shutil
-import subprocess
 import tempfile
 import textwrap
 from pathlib import Path
-from subprocess import CompletedProcess
 
-from msys2downloader.package import PackageFile, Package
-from msys2downloader.utilities import FileBlueprint, DisplayableError
-
-
-class DebBuildError(DisplayableError):
-    pass
-
-
-class DpkgDebSubprocessError(DebBuildError):
-    def __init__(self, process: CompletedProcess[str]) -> None:
-        super().__init__("")
-        self.message = "dpkg-deb failed with exit code {}".format(process.returncode)
-        self.process = process
-
-    def display(self):
-        print(self.message)
-        if self.process.stdout:
-            print("stdout: " + self.process.stdout.strip())
-        if self.process.stderr:
-            print("stderr: " + self.process.stderr.strip())
+from msys2downloader.package import Package
+from msys2downloader.package_store import PackageFile
+from msys2downloader.utilities import FileBlueprint, run_subprocess, AppError
 
 
 class DebBuilder:
@@ -52,12 +33,12 @@ class DebBuilder:
                 src_path = build_dir / src
                 dst_path = build_dir / dst
                 if dst_path.exists():
-                    raise DebBuildError(f"unexpected ${dst} in MSYS2 package")
+                    raise AppError(f"unexpected directory /${dst} in MSYS2 package")
                 if src_path.exists():
                     shutil.move(src_path, dst_path)
 
             # Perform directory renames in pkg-config files
-            self._alter_paths_in_pkgconfig_files(self, build_dir)
+            self._alter_paths_in_pkgconfig_files(build_dir)
 
             # Generate control file
             single_line_description = package.description.replace("\n", " ")
@@ -79,31 +60,19 @@ class DebBuilder:
             # Run dpkg-deb
             deb_file_name = f"{deb_name}_{version}_all.deb"
             deb_path = tdir / deb_file_name
-            try:
-                result = subprocess.run(
-                    ["dpkg-deb", "--root-owner-group", "-b", build_dir, deb_path],
-                    text=True,
-                    encoding="utf-8",
-                    errors="ignore",
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                )
-            except FileNotFoundError:
-                raise DebBuildError("dpkg-deb not found in PATH")
-            if result.returncode != 0:
-                raise DpkgDebSubprocessError(result)
+            run_subprocess(["dpkg-deb", "--root-owner-group", "-b", str(build_dir), str(deb_path)])
             return FileBlueprint(name=deb_file_name, content=deb_path.read_bytes())
 
-    @staticmethod
-    def _alter_paths_in_pkgconfig_files(self, root: Path):
+    @classmethod
+    def _alter_paths_in_pkgconfig_files(cls, root: Path) -> None:
         for pc_file in root.rglob("**/*.pc"):
             content = pc_file.read_text("utf-8")
-            for src, dst in self._dir_rewrites.items():
+            for src, dst in cls._dir_rewrites.items():
                 content = content.replace("/" + src, "/" + dst)
             pc_file.write_text(content, "utf-8")
 
     @staticmethod
-    def _generate_package_name(package: Package):
+    def _generate_package_name(package: Package) -> str:
         return f"{package.short_name}-msys2-{package.environment.name}"
 
     @staticmethod
