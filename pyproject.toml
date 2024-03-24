@@ -8,16 +8,27 @@ strict = true
 
 [tool.ruff.lint]
 select = ["I", "N", "UP", "F", "C4", "ICN", "PIE", "PYI", "RET", "SIM", "TID", "ARG", "PTH", "ERA",
-                 "RUF", "S", "TRY", "NPY", "PD", "PGH", "PLC", "PLE", "PLW", "RUF"]
+    "RUF", "S", "TRY", "NPY", "PD", "PGH", "PLC", "PLE", "PLW", "RUF"]
 ignore = ["TRY003", "S202", "S603"]
 
 [tool.poetry]
 name = "msys2dl"
 version = "2.0.0"
-description = ""
+description = "A tool to download MSYS packages and extract files from MSYS2"
 authors = ["nanoufo <79045429+nanoufo@users.noreply.github.com>"]
 license = "MIT"
 readme = "README.md"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Utilities"
+]
 
 [tool.poetry.dependencies]
 python = "^3.10"
