@@ -25,11 +25,7 @@ pip install --user msys2dl
 
 ### Conversion to Debian packages.
 
-Note: Use this feature only with `mingw64` or `mingw32` environments. Files in packages from these environments are
-relocated from `/mingw{32,64}` to `/usr/{i686,x86_64}-w64-mingw32`, where distribution-provided tools expect them to be.
-Paths in .pc (pkg-config) files are also modified.
-
-Note: Dependencies are processed by default. Use the `--no-deps` flag to opt-out..
+Note: Dependencies are processed by default. Use the `--no-deps` flag to opt-out.
 
 ```bash
 $ msys2dl make-deb --output /tmp/deb --env mingw64 wxwidgets3.2-msw
@@ -52,7 +48,7 @@ $ sudo dpkg -i /tmp/deb/*
 ...
 Setting up wxwidgets3.2-msw-msys2-mingw64 (3.2.4-1) ...
 ...
-$ ls -1 /usr/x86_64-w64-mingw32/lib/
+$ ls -1 /mingw64/lib/
 ...
 libwx_mswu_gl-3.2.a
 libwx_mswu_gl-3.2.dll.a

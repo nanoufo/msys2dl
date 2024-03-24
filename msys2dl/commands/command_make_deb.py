@@ -1,5 +1,4 @@
 import re
-import shutil
 import tempfile
 import textwrap
 from argparse import Namespace
@@ -12,7 +11,7 @@ from msys2dl.commands.output_dir_mixin import OutputDirMixin
 from msys2dl.commands.package_set_mixin import PackageSetMixin
 from msys2dl.package import Package
 from msys2dl.package_store import PackageFile
-from msys2dl.utilities import AppError, run_subprocess
+from msys2dl.utilities import run_subprocess
 
 
 class CommandMakeDeb(PackageSetMixin, OutputDirMixin, Command):
@@ -28,11 +27,6 @@ class CommandMakeDeb(PackageSetMixin, OutputDirMixin, Command):
 
 
 class DebBuilder:
-    _dir_rewrites: ClassVar[dict[str, str]] = {
-        "mingw64": "usr/x86_64-w64-mingw32",
-        "mingw32": "usr/i686-w64-mingw32",
-    }
-
     def build(self, msys2_package_file: PackageFile, output_dir: Path) -> Path:
         package = msys2_package_file.metadata
 
@@ -45,18 +39,6 @@ class DebBuilder:
 
             # Extract package contents & perform directory renames
             msys2_package_file.extract(build_dir)
-
-            # Perform directory renames
-            for src, dst in self._dir_rewrites.items():
-                src_path = build_dir / src
-                dst_path = build_dir / dst
-                if dst_path.exists():
-                    raise AppError(f"unexpected directory /${dst} in MSYS2 package")
-                if src_path.exists():
-                    shutil.move(src_path, dst_path)
-
-            # Perform directory renames in pkg-config files
-            self._alter_paths_in_pkgconfig_files(build_dir)
 
             # Generate control file
             single_line_description = package.description.replace("\n", " ")
@@ -80,14 +62,6 @@ class DebBuilder:
             deb_path = output_dir / deb_file_name
             run_subprocess(["dpkg-deb", "-Znone", "--root-owner-group", "-b", str(build_dir), str(deb_path)])
             return deb_path
-
-    @classmethod
-    def _alter_paths_in_pkgconfig_files(cls, root: Path) -> None:
-        for pc_file in root.rglob("**/*.pc"):
-            content = pc_file.read_text("utf-8")
-            for src, dst in cls._dir_rewrites.items():
-                content = content.replace("/" + src, "/" + dst)
-            pc_file.write_text(content, "utf-8")
 
     @staticmethod
     def _generate_package_name(package: Package) -> str:
