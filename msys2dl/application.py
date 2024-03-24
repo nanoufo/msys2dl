@@ -53,7 +53,7 @@ class Application:
     def handle_interrupt(self, _sig: int, _frame: FrameType | None) -> None:
         self._interrupt_event.set()
 
-    def check_interrupted(self):
+    def check_interrupted(self) -> None:
         if self._interrupt_event.is_set():
             raise InterruptedError()
 
