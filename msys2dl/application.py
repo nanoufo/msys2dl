@@ -53,6 +53,10 @@ class Application:
     def handle_interrupt(self, _sig: int, _frame: FrameType | None) -> None:
         self._interrupt_event.set()
 
+    def check_interrupted(self):
+        if self._interrupt_event.is_set():
+            raise InterruptedError()
+
     def update_keys(self) -> None:
         try:
             response = requests.get(self._keys_url, timeout=5)
@@ -73,7 +77,11 @@ class Application:
         return self.resolve_package_files(packages)
 
     def resolve_package_set(
-        self, include: Iterable[str], exclude: Iterable[str], with_dependencies: bool
+        self,
+        include: Iterable[str],
+        exclude: Iterable[str],
+        with_dependencies: bool,
+        check_conflicts: bool = True,
     ) -> PackageSet:
         # Get excluded packages
         excluded_packages: list[Package] = []
@@ -83,9 +91,14 @@ class Application:
                 print(f"Warning: unknown excluded package '{excluded_name}'")
                 continue
             excluded_packages.append(package)
+        # Create set from includes and excludes
         requested_packages = PackageSet(self._database.get_all_or_raise(include)) - excluded_packages
+        # Add dependencies
         if with_dependencies:
             requested_packages.add_dependencies_recursively(exclude=excluded_packages)
+        # Check for conflicts
+        if check_conflicts:
+            requested_packages.check_for_conflicts()
         return requested_packages
 
     def resolve_package_files(self, packages: Iterable[Package]) -> list[PackageFile]:

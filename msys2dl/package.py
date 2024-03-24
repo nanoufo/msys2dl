@@ -4,6 +4,8 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from typing import ClassVar, Optional
 
+from msys2dl.utilities import AppError
+
 
 @dataclass
 class Environment:
@@ -68,6 +70,18 @@ Environment.all = [
 ]
 
 
+class PackageAlternatives:
+    def __init__(self, provides: str, packages: Iterable["Package"]) -> None:
+        self.provides = provides
+        self.packages = tuple(packages)
+
+    def __repr__(self) -> str:
+        return f"Alternatives(provides='{self.provides}', packages={self.packages})"
+
+    def __str__(self) -> str:
+        return f"providers for {self.provides} (" + ", ".join(p.name for p in self.packages) + ")"
+
+
 @dataclass
 class Package:
     environment: Environment
@@ -76,9 +90,15 @@ class Package:
     version: str
     filename: str
     compressed_size: int | None
+    provides: list[str]
     dependencies_str: list[str]
-    dependencies: list["Package"] = field(default_factory=list, repr=False)
+    conflicts_str: list[str]
+    conflicts: list["Package"] = field(default_factory=list, repr=False)
+    dependencies: list["Package | PackageAlternatives"] = field(default_factory=list, repr=False)
     unknown_dependencies: list[str] = field(default_factory=list)
+
+    def __repr__(self) -> str:
+        return f"Package(name='{self.name}', version={self.version})"
 
     def __str__(self) -> str:
         return f"{self.name}-{self.version}"
@@ -99,17 +119,24 @@ class Package:
     def short_name(self) -> str:
         return self.name.removeprefix(self.environment.package_name_prefix)
 
-    def populate_dependencies(self, packages_dict: dict[str, "Package"]) -> None:
+    def resolve_package_links(
+        self, name_dict: dict[str, "Package"], provides_dict: dict[str, list["Package"]]
+    ) -> None:
         self.dependencies = []
         for dep in self.dependencies_str:
-            dep_name = re.split(r"[<>=]", dep)[0]
-            if dep_name in packages_dict:
-                self.dependencies.append(packages_dict[dep_name])
+            if dep in provides_dict:
+                provided_by = provides_dict[dep]
+                self.dependencies.append(
+                    provided_by[0] if len(provided_by) == 1 else PackageAlternatives(dep, provided_by)
+                )
             else:
-                self.unknown_dependencies.append(dep_name)
+                self.unknown_dependencies.append(dep)
+        for conflict_str in self.conflicts_str:
+            if conflict_str in name_dict:
+                self.conflicts.append(name_dict[conflict_str])
 
-    @staticmethod
-    def from_desc(desc: str, environment: Environment) -> "Package":
+    @classmethod
+    def from_desc(cls, desc: str, environment: Environment) -> "Package":
         sections = {}
         lines = desc.strip().split("\n")
         current_section_name = None
@@ -133,9 +160,28 @@ class Package:
             filename=sections["FILENAME"],
             compressed_size=int(sections["CSIZE"]) if "CSIZE" in sections else None,
             description=sections.get("DESC", ""),
-            dependencies_str=[d for d in sections.get("DEPENDS", "").split("\n") if d],
+            conflicts_str=cls.parse_package_list(sections.get("CONFLICTS", "")),
+            dependencies_str=cls.parse_package_list(sections.get("DEPENDS", "")),
+            provides=cls.parse_package_list(sections.get("PROVIDES", "")),
             environment=environment,
         )
+
+    @classmethod
+    def parse_package_list(cls, text: str) -> list[str]:
+        return [cls.strip_version_constraints(d) for d in text.split("\n") if d]
+
+    @staticmethod
+    def strip_version_constraints(name: str) -> str:
+        return re.split(r"[<>=]", name)[0]
+
+
+@dataclass
+class PackageConflict:
+    first: Package
+    second: Package
+
+    def __str__(self) -> str:
+        return f"{self.first.name} and {self.second.name}"
 
 
 class PackageSet:
@@ -149,12 +195,51 @@ class PackageSet:
         return True
 
     def add_dependencies_recursively(self, exclude: Iterable[Package] | None) -> None:
+        found_alternatives: set[PackageAlternatives] = set()
         q = deque(self._set)
-        while q:
-            package = q.pop()
-            for dep in package.dependencies:
-                if (exclude is None or dep not in exclude) and self.add(dep):
-                    q.append(dep)
+        alternatives_q: deque[PackageAlternatives] = deque()
+        while q or alternatives_q:
+            if q:
+                package = q.pop()
+                for dep in package.dependencies:
+                    if not isinstance(dep, PackageAlternatives):
+                        # Normal dependency
+                        if (exclude is None or dep not in exclude) and self.add(dep):
+                            q.append(dep)
+                    else:
+                        # Alternatives present: postpone resolving them
+                        # (maybe one of alternatives will be added as a normal dependency later)
+                        if dep not in found_alternatives:
+                            found_alternatives.add(dep)
+                            alternatives_q.append(dep)
+            else:
+                # Need to choose from alternatives
+                alternatives = alternatives_q.pop()
+                chosen = next((alt for alt in alternatives.packages if alt in self._set), None)
+                if chosen:
+                    # already chosen
+                    print(f"Alternatives: {chosen.name} is explicitly chosen from {alternatives}")
+                else:
+                    # select one
+                    chosen = min(alternatives.packages, key=lambda p: p.name)
+                    print(f"Alternatives: selecting {chosen.name} from {alternatives}")
+                self.add(chosen)
+                q.append(chosen)
+
+    def find_conflicts(self) -> list[PackageConflict]:
+        conflicts = []
+        for p1 in self._set:
+            for p2 in self._set:
+                if p1 == p2 or p1.name > p2.name or (p2 not in p1.conflicts and p1 not in p2.conflicts):
+                    continue
+
+                conflicts.append(PackageConflict(p1, p2))
+        return conflicts
+
+    def check_for_conflicts(self) -> None:
+        conflicts = self.find_conflicts()
+        if conflicts:
+            raise AppError(f"Package conflicts found: {', '.join(str(conflict) for conflict in conflicts)}")
 
     def __add__(self, other: Iterable[Package]) -> "PackageSet":
         return PackageSet(self._set.union(other))

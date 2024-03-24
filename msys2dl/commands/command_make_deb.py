@@ -68,7 +68,7 @@ class DebBuilder:
                Architecture: all
                Maintainer: unknown
                Description: {single_line_description}
-               Recommends: {', '.join(self._generate_package_name(d) for d in package.dependencies)}
+               Recommends: {', '.join(self._generate_package_name(d) for d in package.dependencies if isinstance(d, Package))}
 
                """
             )

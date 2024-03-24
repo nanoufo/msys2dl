@@ -33,6 +33,9 @@ def _run_app(argv: list[str] | None = None) -> None:
 def main(argv: list[str] | None = None) -> None:
     try:
         _run_app(argv)
+    except InterruptedError:
+        print("Interrupted")
+        sys.exit(2)
     except AppError as e:
         print(e.display())
         sys.exit(1)
