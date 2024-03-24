@@ -2,12 +2,29 @@ import re
 import shutil
 import tempfile
 import textwrap
+from argparse import Namespace
 from pathlib import Path
 from typing import ClassVar
 
-from msys2downloader.package import Package
-from msys2downloader.package_store import PackageFile
-from msys2downloader.utilities import AppError, FileBlueprint, run_subprocess
+from msys2dl.application import Application
+from msys2dl.commands.command import Command
+from msys2dl.commands.output_dir_mixin import OutputDirMixin
+from msys2dl.commands.package_set_mixin import PackageSetMixin
+from msys2dl.package import Package
+from msys2dl.package_store import PackageFile
+from msys2dl.utilities import AppError, run_subprocess
+
+
+class CommandMakeDeb(PackageSetMixin, OutputDirMixin, Command):
+    command_name: ClassVar[str] = "make-deb"
+    action_title = "Making debian packages"
+
+    def __init__(self, app: Application, args: Namespace):
+        super().__init__(app, args)
+
+    def do_package_action(self, package_file: PackageFile) -> None:
+        deb_path = DebBuilder().build(package_file, self.output_dir)
+        print(f"Generated {deb_path.name}")
 
 
 class DebBuilder:
@@ -16,7 +33,7 @@ class DebBuilder:
         "mingw32": "usr/i686-w64-mingw32",
     }
 
-    def build_for(self, msys2_package_file: PackageFile) -> FileBlueprint:
+    def build(self, msys2_package_file: PackageFile, output_dir: Path) -> Path:
         package = msys2_package_file.metadata
 
         with tempfile.TemporaryDirectory(prefix=msys2_package_file.metadata.name, suffix="build") as tdir_str:
@@ -60,9 +77,9 @@ class DebBuilder:
 
             # Run dpkg-deb
             deb_file_name = f"{deb_name}_{version}_all.deb"
-            deb_path = tdir / deb_file_name
+            deb_path = output_dir / deb_file_name
             run_subprocess(["dpkg-deb", "--root-owner-group", "-b", str(build_dir), str(deb_path)])
-            return FileBlueprint(name=deb_file_name, content=deb_path.read_bytes())
+            return deb_path
 
     @classmethod
     def _alter_paths_in_pkgconfig_files(cls, root: Path) -> None:

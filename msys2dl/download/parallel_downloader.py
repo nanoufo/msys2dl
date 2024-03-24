@@ -5,9 +5,9 @@ from contextvars import ContextVar
 from requests import Session
 from requests.adapters import HTTPAdapter
 
-from msys2downloader.download.download_callback import DownloadCallbacks
-from msys2downloader.download.download_request import DownloadRequest
-from msys2downloader.download.simple_downloader import SimpleDownloader
+from msys2dl.download.download_callback import DownloadCallbacks
+from msys2dl.download.download_request import DownloadRequest
+from msys2dl.download.simple_downloader import SimpleDownloader
 
 
 class Job:

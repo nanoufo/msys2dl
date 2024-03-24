@@ -4,8 +4,8 @@ from rich import table
 from rich.console import ConsoleRenderable
 from rich.progress import BarColumn, DownloadColumn, MofNCompleteColumn, Progress, TaskID, TextColumn
 
-from msys2downloader.download.download_callback import DownloadCallbacks
-from msys2downloader.download.download_request import DownloadRequest
+from msys2dl.download.download_callback import DownloadCallbacks
+from msys2dl.download.download_request import DownloadRequest
 
 
 class ProgressCounter(Progress):

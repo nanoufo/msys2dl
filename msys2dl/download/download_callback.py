@@ -1,4 +1,4 @@
-from msys2downloader.download.callback_registry import CallbackRegistry, InterruptFlagCallbackRegistry
+from msys2dl.download.callback_registry import CallbackRegistry, InterruptFlagCallbackRegistry
 
 
 class DownloadCallbacks:

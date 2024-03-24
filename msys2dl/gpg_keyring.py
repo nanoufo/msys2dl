@@ -2,7 +2,7 @@ import re
 import tempfile
 from pathlib import Path
 
-from msys2downloader.utilities import run_subprocess
+from msys2dl.utilities import run_subprocess
 
 
 class GpgKeybox:

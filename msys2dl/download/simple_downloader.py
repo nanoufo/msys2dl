@@ -2,10 +2,10 @@ from pathlib import Path
 
 from requests import RequestException, Session
 
-from msys2downloader.download.download_callback import DownloadCallbacks, SigDownloadCallback
-from msys2downloader.download.download_request import DownloadRequest
-from msys2downloader.gpg_keyring import GpgKeybox
-from msys2downloader.utilities import AppError
+from msys2dl.download.download_callback import DownloadCallbacks, SigDownloadCallback
+from msys2dl.download.download_request import DownloadRequest
+from msys2dl.gpg_keyring import GpgKeybox
+from msys2dl.utilities import AppError
 
 
 class SimpleDownloader:

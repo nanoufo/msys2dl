@@ -5,9 +5,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from tarfile import TarFile, TarInfo, data_filter
 
-from msys2downloader.download.download_request import DownloadRequest
-from msys2downloader.package import Package
-from msys2downloader.utilities import decompress_zst, sanitize_file_path
+from msys2dl.download.download_request import DownloadRequest
+from msys2dl.package import Package
+from msys2dl.utilities import decompress_zst, sanitize_file_path
 
 
 @dataclass

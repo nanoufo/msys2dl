@@ -3,9 +3,9 @@ import tarfile
 from collections.abc import Iterable
 from pathlib import Path
 
-from msys2downloader.download.download_request import DownloadRequest
-from msys2downloader.package import Environment, Package
-from msys2downloader.utilities import AppError, decompress_zst
+from msys2dl.download.download_request import DownloadRequest
+from msys2dl.package import Environment, Package
+from msys2dl.utilities import AppError, decompress_zst
 
 
 class PackageDatabase:

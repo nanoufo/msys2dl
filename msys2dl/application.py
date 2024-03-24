@@ -9,15 +9,15 @@ from types import FrameType, TracebackType
 import requests
 from requests import RequestException
 
-from msys2downloader.download.download_callback import DownloadCallbacks
-from msys2downloader.download.download_request import DownloadRequest
-from msys2downloader.download.parallel_downloader import ParallelDownloader
-from msys2downloader.download.simple_downloader import SimpleDownloader
-from msys2downloader.gpg_keyring import GpgKeybox
-from msys2downloader.package import Environment, Package, PackageSet
-from msys2downloader.package_database import PackageDatabase
-from msys2downloader.package_store import PackageFile, PackageStore
-from msys2downloader.progress import DownloadProgress
+from msys2dl.download.download_callback import DownloadCallbacks
+from msys2dl.download.download_request import DownloadRequest
+from msys2dl.download.parallel_downloader import ParallelDownloader
+from msys2dl.download.simple_downloader import SimpleDownloader
+from msys2dl.gpg_keyring import GpgKeybox
+from msys2dl.package import Environment, Package, PackageSet
+from msys2dl.package_database import PackageDatabase
+from msys2dl.package_store import PackageFile, PackageStore
+from msys2dl.progress import DownloadProgress
 
 
 class Application:
