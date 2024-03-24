@@ -1,8 +1,8 @@
-from typing import Optional, Iterable
+from collections.abc import Iterable
 
 from rich import table
 from rich.console import ConsoleRenderable
-from rich.progress import Progress, TextColumn, MofNCompleteColumn, BarColumn, TaskID, DownloadColumn
+from rich.progress import BarColumn, DownloadColumn, MofNCompleteColumn, Progress, TaskID, TextColumn
 
 from msys2downloader.download.download_callback import DownloadCallbacks
 from msys2downloader.download.download_request import DownloadRequest
@@ -77,7 +77,7 @@ class DownloadProgress(Progress):
 
 class DownloadProgressTracker:
     def __init__(self, progress: DownloadProgress, request: DownloadRequest):
-        self._task_id: Optional[TaskID] = None
+        self._task_id: TaskID | None = None
         self._progress = progress
         self._description = request.name
         self._task_removed = False

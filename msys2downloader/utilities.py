@@ -1,18 +1,19 @@
 import subprocess
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path, PurePath
-from typing import Optional, List, Iterable
+from typing import Optional
 from urllib.parse import quote
 
 import zstandard as zstd
 from rich.console import ConsoleRenderable
 from rich.progress import (
+    BarColumn,
+    DownloadColumn,
+    MofNCompleteColumn,
     Progress,
     TextColumn,
-    MofNCompleteColumn,
-    BarColumn,
     TimeElapsedColumn,
-    DownloadColumn,
 )
 
 
@@ -52,7 +53,7 @@ def decompress_zst(inp: bytes) -> bytes:
     return stream_reader.read()
 
 
-def run_subprocess(command: List[str]) -> str:
+def run_subprocess(command: list[str]) -> str:
     try:
         p = subprocess.run(
             command,
@@ -67,9 +68,10 @@ def run_subprocess(command: List[str]) -> str:
             raise AppError(
                 f"{command[0]} exited with code {p.returncode}", additional_info=["output: " + p.stdout]
             )
-        return p.stdout
     except FileNotFoundError:
         raise AppError(f"no {command[0]} found in PATH")
+    else:
+        return p.stdout
 
 
 @dataclass
@@ -86,7 +88,7 @@ class AppError(Exception):
         self,
         message: str,
         *,
-        additional_info: Optional[list[str]] = None,
+        additional_info: list[str] | None = None,
         wrapped: Optional["AppError"] = None,
     ):
         super().__init__()
@@ -97,7 +99,7 @@ class AppError(Exception):
     def display(self) -> str:
         message = ""
         combined_info_lines = []
-        ex: Optional[AppError] = self
+        ex: AppError | None = self
         while ex is not None:
             if message != "":
                 message += ": "

@@ -1,11 +1,11 @@
 import io
 import tarfile
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, Optional
 
 from msys2downloader.download.download_request import DownloadRequest
 from msys2downloader.package import Environment, Package
-from msys2downloader.utilities import decompress_zst, AppError
+from msys2downloader.utilities import AppError, decompress_zst
 
 
 class PackageDatabase:
@@ -22,7 +22,7 @@ class PackageDatabase:
             for e in environments
         ]
 
-    def get(self, full_name: str) -> Optional[Package]:
+    def get(self, full_name: str) -> Package | None:
         return self._packages_dict.get(full_name)
 
     def get_or_raise(self, full_name: str) -> Package:
@@ -59,19 +59,18 @@ class PackageDatabase:
 
 
 class PackageNameResolver:
-    def __init__(self, default_env: Optional[Environment] = None):
+    def __init__(self, default_env: Environment | None = None):
         self.default_env = default_env
 
     def resolve_full_name(self, name: str) -> str:
         if Environment.by_package_name(name):
             # It is full package name
             return name
-        elif self.default_env:
+        if self.default_env:
             return self.default_env.package_name_prefix + name
-        else:
-            raise AppError(
-                f"package '{name}' does not contain environment prefix, and no default environment set"
-            )
+        raise AppError(
+            f"package '{name}' does not contain environment prefix, and no default environment set"
+        )
 
     def resolve_full_names(self, names: Iterable[str]) -> list[str]:
         return [self.resolve_full_name(name) for name in names]

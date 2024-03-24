@@ -1,7 +1,8 @@
 import re
 from collections import deque
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
-from typing import ClassVar, List, Optional, Iterable, Iterator
+from typing import ClassVar, Optional
 
 
 @dataclass
@@ -11,7 +12,7 @@ class Environment:
     path_prefix: str
     package_name_prefix: str
 
-    all: ClassVar[List["Environment"]] = []
+    all: ClassVar[list["Environment"]] = []
 
     def __hash__(self) -> int:
         return hash(self.name)
@@ -74,10 +75,10 @@ class Package:
     description: str
     version: str
     filename: str
-    compressed_size: Optional[int]
+    compressed_size: int | None
     dependencies_str: list[str]
-    dependencies: list["Package"] = field(default_factory=lambda: [], repr=False)
-    unknown_dependencies: list[str] = field(default_factory=lambda: [])
+    dependencies: list["Package"] = field(default_factory=list, repr=False)
+    unknown_dependencies: list[str] = field(default_factory=list)
 
     def __str__(self) -> str:
         return f"{self.name}-{self.version}"
@@ -138,7 +139,7 @@ class Package:
 
 
 class PackageSet:
-    def __init__(self, packages: Optional[Iterable[Package]] = None) -> None:
+    def __init__(self, packages: Iterable[Package] | None = None) -> None:
         self._set = set(packages) if packages is not None else set()
 
     def add(self, package: Package) -> bool:
@@ -147,7 +148,7 @@ class PackageSet:
         self._set.add(package)
         return True
 
-    def add_dependencies_recursively(self, exclude: Optional[Iterable[Package]]) -> None:
+    def add_dependencies_recursively(self, exclude: Iterable[Package] | None) -> None:
         q = deque(self._set)
         while q:
             package = q.pop()

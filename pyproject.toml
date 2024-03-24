@@ -1,13 +1,15 @@
-[tool.black]
+[tool.ruff]
 line-length = 110
-target-version = ["py310"]
-
-[tool.isort]
-profile = "black"
+target-version = "py310"
 
 [tool.mypy]
 python_version = "3.10"
 strict = true
+
+[tool.ruff.lint]
+select = ["I", "N", "UP", "F", "C4", "ICN", "PIE", "PYI", "RET", "SIM", "TID", "ARG", "PTH", "ERA",
+                 "RUF", "S", "TRY", "NPY", "PD", "PGH", "PLC", "PLE", "PLW", "RUF"]
+ignore = ["TRY003", "S202", "S603"]
 
 [tool.poetry]
 name = "msys2downloader"
@@ -26,9 +28,8 @@ rich = "^13.7.1"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.9.0"
-black = "^24.3.0"
-isort = "^5.13.2"
 types-requests = "^2.31.0.20240311"
+ruff = "^0.3.4"
 
 [build-system]
 requires = ["poetry-core"]

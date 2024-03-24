@@ -2,7 +2,6 @@ import sys
 from argparse import ArgumentParser
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional
 
 from msys2downloader.application import Application
 from msys2downloader.deb_builder import DebBuilder
@@ -18,13 +17,13 @@ class Mode(Enum):
     MAKE_DEB = "make-deb"
 
 
-def _run_app(argv: Optional[List[str]] = None) -> None:
+def _run_app(argv: list[str] | None = None) -> None:
     argv = argv if argv is not None else sys.argv[1:]
     parser = ArgumentParser()
     Application.configure_parser(parser)
     parser.add_argument("--extract", dest="mode", action="store_const", const=Mode.EXTRACT, default=False)
     parser.add_argument("--make-deb", dest="mode", action="store_const", const=Mode.MAKE_DEB, default=False)
-    parser.add_argument("--output", "-o", metavar="OUTPUT_DIRECTORY", type=Path, default=Path("."))
+    parser.add_argument("--output", "-o", metavar="OUTPUT_DIRECTORY", type=Path)
     parser.add_argument(
         "--env",
         default=None,
@@ -48,7 +47,7 @@ def _run_app(argv: Optional[List[str]] = None) -> None:
         default_env = Environment.by_name_or_raise(args.env) if args.env else None
         include = PackageNameResolver(default_env).resolve_full_names(args.packages)
         exclude = PackageNameResolver(default_env).resolve_full_names(args.exclude)
-        environments = set(Environment.by_package_name_or_raise(name) for name in (include + exclude))
+        environments = {Environment.by_package_name_or_raise(name) for name in (include + exclude)}
         # Update keys
         app.update_keys()
         # Download package databases
@@ -73,7 +72,7 @@ def _run_app(argv: Optional[List[str]] = None) -> None:
                 progress.increment(1)
 
 
-def main(argv: Optional[List[str]] = None) -> None:
+def main(argv: list[str] | None = None) -> None:
     try:
         _run_app(argv)
     except AppError as e:

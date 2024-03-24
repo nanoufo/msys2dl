@@ -1,16 +1,15 @@
 import re
 import tempfile
 from pathlib import Path
-from typing import Union
 
 from msys2downloader.utilities import run_subprocess
 
 
 class GpgKeybox:
-    def __init__(self, location: Union[str, Path]):
+    def __init__(self, location: str | Path):
         self.location = Path(location).absolute()
 
-    def update_keys(self, key_file: Union[Path, bytes]) -> None:
+    def update_keys(self, key_file: Path | bytes) -> None:
         if isinstance(key_file, Path):
             key_file = key_file.read_bytes()
         text_content = key_file.decode("utf-8")

@@ -1,6 +1,6 @@
-from concurrent.futures import ThreadPoolExecutor, Future, CancelledError
+from collections.abc import Callable
+from concurrent.futures import CancelledError, Future, ThreadPoolExecutor
 from contextvars import ContextVar
-from typing import Optional, List, Callable
 
 from requests import Session
 from requests.adapters import HTTPAdapter
@@ -13,8 +13,8 @@ from msys2downloader.download.simple_downloader import SimpleDownloader
 class Job:
     def __init__(self) -> None:
         self._failed = False
-        self._exception: Optional[Exception] = None
-        self._futures: List[Future[None]] = []
+        self._exception: Exception | None = None
+        self._futures: list[Future[None]] = []
 
     def register_callbacks(self, callback: DownloadCallbacks) -> None:
         callback.failure_handlers.register(self.on_failure)
@@ -51,11 +51,11 @@ class ParallelDownloader:
         self._downloader = downloader
         self._pool = ThreadPoolExecutor(n_threads, initializer=self._initialize_worker_thread)
         self._session: ContextVar[Session] = ContextVar("session")
-        self._sessions: List[Session] = []
+        self._sessions: list[Session] = []
 
     def execute_requests(
         self,
-        requests: List[DownloadRequest],
+        requests: list[DownloadRequest],
         register_callbacks: Callable[[DownloadRequest, DownloadCallbacks], None],
     ) -> None:
         job = Job()

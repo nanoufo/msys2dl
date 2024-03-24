@@ -3,14 +3,15 @@ import shutil
 import tempfile
 import textwrap
 from pathlib import Path
+from typing import ClassVar
 
 from msys2downloader.package import Package
 from msys2downloader.package_store import PackageFile
-from msys2downloader.utilities import FileBlueprint, run_subprocess, AppError
+from msys2downloader.utilities import AppError, FileBlueprint, run_subprocess
 
 
 class DebBuilder:
-    _dir_rewrites = {
+    _dir_rewrites: ClassVar[dict[str, str]] = {
         "mingw64": "usr/x86_64-w64-mingw32",
         "mingw32": "usr/i686-w64-mingw32",
     }

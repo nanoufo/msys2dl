@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from requests import Session, RequestException
+from requests import RequestException, Session
 
 from msys2downloader.download.download_callback import DownloadCallbacks, SigDownloadCallback
 from msys2downloader.download.download_request import DownloadRequest

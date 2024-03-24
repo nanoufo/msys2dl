@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 
 @dataclass
@@ -8,7 +7,7 @@ class DownloadRequest:
     name: str
     url: str
     dest: Path
-    expected_size: Optional[int] = None
+    expected_size: int | None = None
 
     @property
     def sig_url(self) -> str:

@@ -1,13 +1,13 @@
 import io
 import tarfile
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from tarfile import TarInfo, data_filter, TarFile
-from typing import Iterable, Optional
+from tarfile import TarFile, TarInfo, data_filter
 
 from msys2downloader.download.download_request import DownloadRequest
 from msys2downloader.package import Package
-from msys2downloader.utilities import sanitize_file_path, decompress_zst
+from msys2downloader.utilities import decompress_zst, sanitize_file_path
 
 
 @dataclass
@@ -16,7 +16,7 @@ class PackageFile:
     path: Path
 
     def extract(self, dst: Path) -> None:
-        def need_to_extract(member: TarInfo, dest_path: str) -> Optional[TarInfo]:
+        def need_to_extract(member: TarInfo, dest_path: str) -> TarInfo | None:
             if not data_filter(member, dest_path):
                 return None
             if member.name.startswith("."):
@@ -32,7 +32,6 @@ class PackageFile:
 
 
 class PackageStore:
-
     def __init__(self, root: Path) -> None:
         self.root = root
 

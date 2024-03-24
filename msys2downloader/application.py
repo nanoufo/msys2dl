@@ -1,10 +1,10 @@
 import os
 import signal
 from argparse import ArgumentParser, Namespace
+from collections.abc import Iterable
 from pathlib import Path
 from threading import Event
 from types import FrameType, TracebackType
-from typing import List, Iterable, Optional, Type
 
 import requests
 from requests import RequestException
@@ -16,7 +16,7 @@ from msys2downloader.download.simple_downloader import SimpleDownloader
 from msys2downloader.gpg_keyring import GpgKeybox
 from msys2downloader.package import Environment, Package, PackageSet
 from msys2downloader.package_database import PackageDatabase
-from msys2downloader.package_store import PackageStore, PackageFile
+from msys2downloader.package_store import PackageFile, PackageStore
 from msys2downloader.progress import DownloadProgress
 
 
@@ -42,20 +42,20 @@ class Application:
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         self._downloader.close()
         if exc_val is not None:
             raise exc_val
 
-    def handle_interrupt(self, _sig: int, _frame: Optional[FrameType]) -> None:
+    def handle_interrupt(self, _sig: int, _frame: FrameType | None) -> None:
         self._interrupt_event.set()
 
     def update_keys(self) -> None:
         try:
-            response = requests.get(self._keys_url)
+            response = requests.get(self._keys_url, timeout=5)
             response.raise_for_status()
         except RequestException as exc:
             print(f"Warning: failed to update signature keys: {exc}")
@@ -91,7 +91,7 @@ class Application:
     def resolve_package_files(self, packages: Iterable[Package]) -> list[PackageFile]:
         return [self._package_store.get_package_file(package) for package in packages]
 
-    def _download(self, description: str, reqs: List[DownloadRequest], force: bool = False) -> None:
+    def _download(self, description: str, reqs: list[DownloadRequest], force: bool = False) -> None:
         if not force:
             # Don't download if already downloaded
             reqs = [r for r in reqs if not r.dest.exists()]
