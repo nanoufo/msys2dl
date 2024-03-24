@@ -1,5 +1,7 @@
 # msys2dl
 
+![PyPI - Version](https://img.shields.io/pypi/v/msys2dl) ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/msys2dl)
+
 This tool is designed for downloading, extracting MSYS2 packages and converting them to Debian packages for use in
 cross-compiling. While you won't be able to run executable files, you'll have access to includes and libraries to link
 against.
@@ -10,18 +12,18 @@ Option 1 (recommended): pipx creates a virtual environment for the installed app
 and its dependencies do not conflict with system Python packages.
 
 ```
-pipx install git+https://github.com/nanoufo/msys2-downloader.git@main
+pipx install msys2dl
 ```
 
 Option 2:
 
 ```
-pip install --user git+https://github.com/nanoufo/msys2-downloader.git@main
+pip install --user msys2dl
 ```
 
 ## How to use
 
-Conversion to Debian packages.
+### Conversion to Debian packages.
 
 Note: Use this feature only with `mingw64` or `mingw32` environments. Files in packages from these environments are
 relocated from `/mingw{32,64}` to `/usr/{i686,x86_64}-w64-mingw32`, where distribution-provided tools expect them to be.
@@ -57,16 +59,18 @@ libwx_mswu_gl-3.2.dll.a
 ...
 ```
 
-Extracting.
+### Extracting.
 
 Note: Dependencies are processed by default. Use the `--no-deps` flag to opt-out.
 
 ```bash
-$ msys2-download extract --output /tmp/sysroot --env mingw64 curl
+$ msys2dl extract --output /tmp/sysroot --env mingw64 curl
+Alternatives: selecting mingw-w64-x86_64-libssh2 from providers for mingw-w64-x86_64-libssh2 (mingw-w64-x86_64-libssh2, mingw-w64-x86_64-libssh2-wincng)
 Downloaded mingw-w64-x86_64-openssl-3.2.1-1
 Downloaded mingw-w64-x86_64-curl-8.6.0-1
 ...
-
+Extracted mingw-w64-x86_64-curl-8.6.0-1
+...
 $ tree -L 2 /tmp/sysroot
 /tmp/sysroot
 └── mingw64
@@ -106,7 +110,7 @@ $ msys2dl extract --exclude zlib -- curl
 
 ### Environment variables
 
-|                                             |                                                              |
-|---------------------------------------------|--------------------------------------------------------------|
-| `MSYS2DL_HOME`                              | Location where msys2dl stores the database and the packages. |
-| Default: `~/.local/share/msys2-downloader`. |                                                              |
+| Name           | Description                                                                                       |
+|----------------|---------------------------------------------------------------------------------------------------|
+| `MSYS2DL_HOME` | Location where msys2dl stores the database and the packages. Default is `~/.local/share/msys2dl`. |
+
