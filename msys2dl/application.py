@@ -22,7 +22,7 @@ from msys2dl.progress import DownloadProgress
 
 class Application:
     def __init__(self, args: Namespace):
-        home = Path(os.getenv("MSYS2DL_HOME") or Path("~/.local/share/msys2-downloader").expanduser())
+        home = Path(os.getenv("MSYS2DL_HOME") or Path("~/.local/share/msys2dl").expanduser())
         home.mkdir(parents=True, exist_ok=True)
         self._database = PackageDatabase(home / "db")
         self._package_store = PackageStore(home / "packages")
