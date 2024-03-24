@@ -78,7 +78,7 @@ class DebBuilder:
             # Run dpkg-deb
             deb_file_name = f"{deb_name}_{version}_all.deb"
             deb_path = output_dir / deb_file_name
-            run_subprocess(["dpkg-deb", "--root-owner-group", "-b", str(build_dir), str(deb_path)])
+            run_subprocess(["dpkg-deb", "-Znone", "--root-owner-group", "-b", str(build_dir), str(deb_path)])
             return deb_path
 
     @classmethod
